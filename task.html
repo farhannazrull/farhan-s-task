@@ -1,0 +1,630 @@
+<!doctype html>
+<html lang="id" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Farhan Task Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+        body {
+            box-sizing: border-box;
+        }
+        
+        .notion-bg {
+            background: #ffffff;
+        }
+        
+        .notion-sidebar {
+            background: #f7f6f3;
+            border-right: 1px solid #e9e9e7;
+        }
+        
+        .notion-card {
+            background: #ffffff;
+            border: 1px solid #e9e9e7;
+            transition: all 0.2s ease;
+        }
+        
+        .notion-card:hover {
+            background: #f7f6f3;
+            border-color: #d3d1cb;
+        }
+        
+        .notion-input {
+            background: #ffffff;
+            border: 1px solid #e9e9e7;
+            color: #37352f;
+        }
+        
+        .notion-input:focus {
+            border-color: #2383e2;
+            box-shadow: 0 0 0 1px #2383e2;
+        }
+        
+        .notion-button {
+            background: #2383e2;
+            color: white;
+            border: none;
+            font-weight: 500;
+        }
+        
+        .notion-button:hover {
+            background: #1a6bb8;
+        }
+        
+        .notion-text {
+            color: #37352f;
+        }
+        
+        .notion-text-secondary {
+            color: #787774;
+        }
+        
+        .progress-bar {
+            transition: width 0.5s ease;
+        }
+        
+        .loading-spinner {
+            border: 2px solid #f3f4f6;
+            border-top: 2px solid #8b5cf6;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .custom-checkbox {
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border: 2px solid #d1d5db;
+            border-radius: 4px;
+            background: white;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+        
+        .custom-checkbox:checked {
+            background: #8b5cf6;
+            border-color: #8b5cf6;
+        }
+        
+        .custom-checkbox:checked::after {
+            content: '✓';
+            position: absolute;
+            top: -1px;
+            left: 2px;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .priority-high { background: #fef2f2; color: #dc2626; }
+        .priority-medium { background: #fef3c7; color: #d97706; }
+        .priority-low { background: #f0fdf4; color: #16a34a; }
+        
+        .status-todo { background: #f3f4f6; color: #6b7280; }
+        .status-progress { background: #dbeafe; color: #2563eb; }
+        .status-done { background: #f0fdf4; color: #16a34a; }
+
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            z-index: 1000;
+            animation: slideIn 0.3s ease;
+        }
+
+        .toast.success { background: #10b981; }
+        .toast.error { background: #ef4444; }
+        .toast.info { background: #3b82f6; }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+    </style>
+  <style>@view-transition { navigation: auto; }</style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+  <script src="/_sdk/element_sdk.js" type="text/javascript"></script>
+ </head>
+ <body class="h-full notion-bg font-sans">
+  <main class="min-h-full">
+   <div class="max-w-7xl mx-auto"><!-- Main Container -->
+    <div class="notion-bg p-6"><!-- Header -->
+     <div class="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
+      <div class="flex items-center gap-3"><span class="text-2xl">📋</span>
+       <h1 class="text-3xl font-bold notion-text">Farhan's Tasks</h1>
+      </div>
+      <div class="flex items-center gap-3"><span class="text-sm notion-text-secondary">Total: <span id="task-count">0</span> tasks</span> <button id="notification-btn" class="p-2 hover:bg-gray-100 rounded transition-colors"> <span class="text-lg">🔔</span> </button>
+      </div>
+     </div><!-- Progress Section -->
+     <div class="mb-6">
+      <div class="flex items-center justify-between mb-3">
+       <h3 class="text-lg font-semibold notion-text">Progress</h3><span id="progress-percentage" class="text-sm font-medium notion-text-secondary">0%</span>
+      </div>
+      <div class="w-full bg-gray-200 rounded h-2">
+       <div id="progress-bar" class="progress-bar bg-blue-500 h-2 rounded" style="width: 0%"></div>
+      </div>
+     </div><!-- Input Section -->
+     <div class="mb-6"><!-- Search Bar -->
+      <div class="mb-4"><input type="text" id="search-input" placeholder="🔍 Search tasks..." class="w-full px-4 py-3 notion-input rounded-lg focus:outline-none text-base">
+      </div><!-- Add Task Form -->
+      <form id="task-form" class="space-y-3">
+       <div class="flex gap-3"><input type="text" id="task-title" placeholder="✍️ Add a task..." class="flex-1 px-4 py-3 notion-input rounded-lg focus:outline-none text-base" required> <button type="submit" id="add-button" class="px-6 py-3 notion-button rounded-lg transition-colors flex items-center gap-2"> <span>Add</span>
+         <div id="add-loading" class="loading-spinner hidden"></div></button>
+       </div><!-- Properties Row -->
+       <div class="grid grid-cols-2 md:grid-cols-4 gap-3"><select id="task-category" class="px-3 py-2 notion-input rounded text-sm focus:outline-none"> <option value="">📁 Category</option> <option value="Work">💼 Work</option> <option value="Personal">🏠 Personal</option> <option value="Study">📚 Study</option> <option value="Health">💪 Health</option> </select> <select id="task-priority" class="px-3 py-2 notion-input rounded text-sm focus:outline-none"> <option value="">⚡ Priority</option> <option value="High">🔴 High</option> <option value="Medium">🟡 Medium</option> <option value="Low">🟢 Low</option> </select> <select id="task-status" class="px-3 py-2 notion-input rounded text-sm focus:outline-none"> <option value="">📋 Status</option> <option value="Todo">📝 To Do</option> <option value="Progress">⏳ In Progress</option> <option value="Done">✅ Done</option> </select> <input type="date" id="task-deadline" class="px-3 py-2 notion-input rounded text-sm focus:outline-none" title="Task deadline">
+       </div>
+      </form>
+     </div><!-- Tasks List -->
+     <div id="tasks-container" class="space-y-4"><!-- Tasks will be rendered here -->
+     </div><!-- Empty State -->
+     <div id="empty-state" class="text-center py-16 notion-text-secondary hidden">
+      <div class="text-4xl mb-3">
+       📝
+      </div>
+      <h3 class="text-lg font-medium mb-2 notion-text">No tasks yet</h3>
+      <p class="text-sm">Add your first task to get started!</p>
+     </div>
+    </div>
+   </div>
+  </main>
+  <script>
+        // Local Storage Management
+        class TaskManager {
+            constructor() {
+                this.storageKey = 'farhan-tasks';
+                this.tasks = this.loadTasks();
+                this.filteredTasks = [];
+                this.expandedTasks = new Set();
+                this.autoSort = false;
+            }
+
+            loadTasks() {
+                try {
+                    const stored = localStorage.getItem(this.storageKey);
+                    return stored ? JSON.parse(stored) : [];
+                } catch (error) {
+                    console.error('Error loading tasks:', error);
+                    return [];
+                }
+            }
+
+            saveTasks() {
+                try {
+                    localStorage.setItem(this.storageKey, JSON.stringify(this.tasks));
+                    this.updateUI();
+                } catch (error) {
+                    console.error('Error saving tasks:', error);
+                    showToast('Failed to save data', 'error');
+                }
+            }
+
+            addTask(taskData) {
+                const newTask = {
+                    id: Date.now().toString(),
+                    title: taskData.title,
+                    category: taskData.category || '',
+                    priority: taskData.priority || '',
+                    status: taskData.status || 'Todo',
+                    deadline: taskData.deadline || '',
+                    completed: false,
+                    createdAt: new Date().toISOString(),
+                    subtasks: []
+                };
+
+                this.tasks.push(newTask);
+                this.saveTasks();
+                showToast('Task added successfully!', 'success');
+                return newTask;
+            }
+
+            updateTask(taskId, updates) {
+                const taskIndex = this.tasks.findIndex(t => t.id === taskId);
+                if (taskIndex !== -1) {
+                    this.tasks[taskIndex] = { ...this.tasks[taskIndex], ...updates };
+                    this.saveTasks();
+                    return this.tasks[taskIndex];
+                }
+                return null;
+            }
+
+            deleteTask(taskId) {
+                const taskIndex = this.tasks.findIndex(t => t.id === taskId);
+                if (taskIndex !== -1) {
+                    this.tasks.splice(taskIndex, 1);
+                    this.saveTasks();
+                    showToast('Task deleted successfully!', 'success');
+                    return true;
+                }
+                return false;
+            }
+
+            toggleTask(taskId) {
+                const task = this.tasks.find(t => t.id === taskId);
+                if (task) {
+                    task.completed = !task.completed;
+                    if (task.completed) {
+                        task.status = 'Done';
+                    }
+                    this.saveTasks();
+                    return task;
+                }
+                return null;
+            }
+
+            addSubtask(taskId, subtaskText) {
+                const task = this.tasks.find(t => t.id === taskId);
+                if (task) {
+                    const newSubtask = {
+                        id: Date.now().toString(),
+                        text: subtaskText,
+                        completed: false
+                    };
+                    task.subtasks.push(newSubtask);
+                    this.saveTasks();
+                    showToast('Subtask added successfully!', 'success');
+                    return newSubtask;
+                }
+                return null;
+            }
+
+            toggleSubtask(taskId, subtaskId) {
+                const task = this.tasks.find(t => t.id === taskId);
+                if (task) {
+                    const subtask = task.subtasks.find(s => s.id === subtaskId);
+                    if (subtask) {
+                        subtask.completed = !subtask.completed;
+                        this.saveTasks();
+                        return subtask;
+                    }
+                }
+                return null;
+            }
+
+            deleteSubtask(taskId, subtaskId) {
+                const task = this.tasks.find(t => t.id === taskId);
+                if (task) {
+                    const subtaskIndex = task.subtasks.findIndex(s => s.id === subtaskId);
+                    if (subtaskIndex !== -1) {
+                        task.subtasks.splice(subtaskIndex, 1);
+                        this.saveTasks();
+                        showToast('Subtask deleted successfully!', 'success');
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            applyFilters(searchTerm = '') {
+                this.filteredTasks = this.tasks.filter(task => {
+                    return task.title.toLowerCase().includes(searchTerm.toLowerCase());
+                });
+
+                if (this.autoSort) {
+                    this.filteredTasks.sort((a, b) => {
+                        if (!a.deadline && !b.deadline) return 0;
+                        if (!a.deadline) return 1;
+                        if (!b.deadline) return -1;
+                        return new Date(a.deadline) - new Date(b.deadline);
+                    });
+                }
+
+                this.renderTasks();
+            }
+
+            updateUI() {
+                this.applyFilters(document.getElementById('search-input').value);
+                this.updateProgress();
+                this.updateTaskCount();
+            }
+
+            updateProgress() {
+                const totalTasks = this.tasks.length;
+                const completedTasks = this.tasks.filter(task => task.completed).length;
+                const percentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+                
+                document.getElementById('progress-percentage').textContent = `${percentage}%`;
+                document.getElementById('progress-bar').style.width = `${percentage}%`;
+            }
+
+            updateTaskCount() {
+                document.getElementById('task-count').textContent = this.tasks.length;
+            }
+
+            renderTasks() {
+                const container = document.getElementById('tasks-container');
+                const emptyState = document.getElementById('empty-state');
+                
+                if (this.filteredTasks.length === 0) {
+                    container.innerHTML = '';
+                    emptyState.classList.remove('hidden');
+                    return;
+                }
+                
+                emptyState.classList.add('hidden');
+                
+                container.innerHTML = this.filteredTasks.map(task => {
+                    const isExpanded = this.expandedTasks.has(task.id);
+                    
+                    return `
+                        <div class="notion-card rounded-lg p-4 mb-2">
+                            <div class="flex items-start gap-3">
+                                <input 
+                                    type="checkbox" 
+                                    class="custom-checkbox mt-1" 
+                                    ${task.completed ? 'checked' : ''}
+                                    onchange="taskManager.toggleTask('${task.id}')"
+                                >
+                                <div class="flex-1">
+                                    <h3 class="text-base font-medium notion-text mb-2 ${task.completed ? 'line-through opacity-60' : ''}">${escapeHtml(task.title)}</h3>
+                                    <div class="flex flex-wrap gap-2 mb-2">
+                                        ${task.deadline ? `<span class="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">📅 ${formatDate(task.deadline)}</span>` : ''}
+                                        ${task.category ? `<span class="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">${getCategoryIcon(task.category)} ${task.category}</span>` : ''}
+                                        ${task.priority ? `<span class="px-2 py-1 priority-${task.priority.toLowerCase()} rounded text-xs font-medium">${getPriorityIcon(task.priority)} ${getPriorityText(task.priority)}</span>` : ''}
+                                        ${task.status ? `<span class="px-2 py-1 status-${task.status.toLowerCase()} rounded text-xs font-medium">${getStatusIcon(task.status)} ${getStatusText(task.status)}</span>` : ''}
+                                    </div>
+                                    ${isExpanded ? `
+                                        <div class="mt-3 pl-4 border-l-2 border-gray-200">
+                                            <div class="space-y-2 mb-3">
+                                                ${task.subtasks.map(subtask => `
+                                                    <div class="flex items-center gap-2">
+                                                        <input type="checkbox" class="custom-checkbox" ${subtask.completed ? 'checked' : ''} onchange="taskManager.toggleSubtask('${task.id}', '${subtask.id}')">
+                                                        <span class="text-sm notion-text ${subtask.completed ? 'line-through opacity-60' : ''}">${escapeHtml(subtask.text)}</span>
+                                                        <button onclick="taskManager.deleteSubtask('${task.id}', '${subtask.id}')" class="text-gray-400 hover:text-red-500 text-xs ml-auto">×</button>
+                                                    </div>
+                                                `).join('')}
+                                            </div>
+                                            <div class="flex gap-2">
+                                                <input 
+                                                    type="text" 
+                                                    id="subtask-input-${task.id}" 
+                                                    placeholder="Add subtask..." 
+                                                    class="flex-1 px-3 py-2 notion-input rounded text-sm focus:outline-none"
+                                                    onkeypress="if(event.key==='Enter') { taskManager.addSubtask('${task.id}', this.value); this.value=''; }"
+                                                >
+                                                <button onclick="addSubtaskFromInput('${task.id}')" class="px-3 py-2 notion-button rounded text-sm transition-colors">Add</button>
+                                            </div>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                                <div class="flex gap-1">
+                                    <button onclick="toggleExpand('${task.id}')" class="p-1 hover:bg-gray-100 rounded text-sm text-gray-500 hover:text-gray-700">⋯</button>
+                                    <button onclick="editTask('${task.id}')" class="p-1 hover:bg-gray-100 rounded text-sm text-gray-500 hover:text-gray-700">✏️</button>
+                                    <button onclick="taskManager.deleteTask('${task.id}')" class="p-1 hover:bg-gray-100 rounded text-sm text-gray-500 hover:text-red-500">🗑️</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        // Initialize Task Manager
+        const taskManager = new TaskManager();
+
+        // Helper Functions
+        function getCategoryIcon(category) {
+            const icons = {
+                'Work': '💼',
+                'Personal': '🏠', 
+                'Study': '📚',
+                'Health': '💪'
+            };
+            return icons[category] || '📁';
+        }
+
+        function getPriorityIcon(priority) {
+            const icons = {
+                'High': '🔴',
+                'Medium': '🟡',
+                'Low': '🟢'
+            };
+            return icons[priority] || '⚡';
+        }
+
+        function getPriorityText(priority) {
+            const texts = {
+                'High': 'High',
+                'Medium': 'Medium',
+                'Low': 'Low'
+            };
+            return texts[priority] || priority;
+        }
+
+        function getStatusIcon(status) {
+            const icons = {
+                'Todo': '📝',
+                'Progress': '⏳',
+                'Done': '✅'
+            };
+            return icons[status] || '📝';
+        }
+
+        function getStatusText(status) {
+            const texts = {
+                'Todo': 'To Do',
+                'Progress': 'In Progress',
+                'Done': 'Done'
+            };
+            return texts[status] || status;
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function setLoading(loading) {
+            const button = document.getElementById('add-button');
+            const spinner = document.getElementById('add-loading');
+            
+            button.disabled = loading;
+            
+            if (loading) {
+                spinner.classList.remove('hidden');
+                button.classList.add('opacity-75');
+            } else {
+                spinner.classList.add('hidden');
+                button.classList.remove('opacity-75');
+            }
+        }
+
+        // UI Event Handlers
+        function toggleExpand(taskId) {
+            if (taskManager.expandedTasks.has(taskId)) {
+                taskManager.expandedTasks.delete(taskId);
+            } else {
+                taskManager.expandedTasks.add(taskId);
+            }
+            taskManager.renderTasks();
+        }
+
+        function addSubtaskFromInput(taskId) {
+            const input = document.getElementById(`subtask-input-${taskId}`);
+            const text = input.value.trim();
+            if (text) {
+                taskManager.addSubtask(taskId, text);
+                input.value = '';
+            }
+        }
+
+        function editTask(taskId) {
+            const task = taskManager.tasks.find(t => t.id === taskId);
+            if (!task) return;
+            
+            // Fill form with task data
+            document.getElementById('task-title').value = task.title;
+            document.getElementById('task-category').value = task.category || '';
+            document.getElementById('task-priority').value = task.priority || '';
+            document.getElementById('task-status').value = task.status || 'Todo';
+            document.getElementById('task-deadline').value = task.deadline || '';
+            
+            // Delete the task so user can re-add with changes
+            taskManager.deleteTask(taskId);
+            
+            showToast('Task loaded for editing. Modify and click Add.', 'info');
+        }
+
+        // Event Listeners
+        document.getElementById('task-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const title = document.getElementById('task-title').value.trim();
+            const category = document.getElementById('task-category').value;
+            const priority = document.getElementById('task-priority').value;
+            const status = document.getElementById('task-status').value;
+            
+            // Input validation
+            if (!title) {
+                showToast('Task title is required!', 'error');
+                return;
+            }
+            
+            if (!category) {
+                showToast('Category must be selected!', 'error');
+                return;
+            }
+            
+            if (!priority) {
+                showToast('Priority must be selected!', 'error');
+                return;
+            }
+            
+            if (!status) {
+                showToast('Status must be selected!', 'error');
+                return;
+            }
+            
+            setLoading(true);
+            
+            // Simulate loading delay
+            setTimeout(() => {
+                const taskData = {
+                    title: title,
+                    category: category,
+                    priority: priority,
+                    status: status,
+                    deadline: document.getElementById('task-deadline').value
+                };
+                
+                taskManager.addTask(taskData);
+                
+                // Clear form
+                document.getElementById('task-title').value = '';
+                document.getElementById('task-category').value = '';
+                document.getElementById('task-priority').value = '';
+                document.getElementById('task-status').value = '';
+                document.getElementById('task-deadline').value = '';
+                
+                setLoading(false);
+            }, 500);
+        });
+
+        document.getElementById('search-input').addEventListener('input', (e) => {
+            taskManager.applyFilters(e.target.value);
+        });
+
+
+
+        document.getElementById('notification-btn').addEventListener('click', () => {
+            const upcomingTasks = taskManager.tasks.filter(task => {
+                if (!task.deadline || task.completed) return false;
+                const deadline = new Date(task.deadline);
+                const today = new Date();
+                const diffTime = deadline - today;
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                return diffDays <= 3 && diffDays >= 0;
+            });
+            
+            if (upcomingTasks.length > 0) {
+                showToast(`${upcomingTasks.length} tasks due within 3 days!`, 'info');
+            } else {
+                showToast('No upcoming deadlines!', 'success');
+            }
+        });
+
+        // Initialize UI
+        document.addEventListener('DOMContentLoaded', () => {
+            taskManager.updateUI();
+        });
+
+        // Initialize immediately if DOM is already loaded
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                taskManager.updateUI();
+            });
+        } else {
+            taskManager.updateUI();
+        }
+    </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'99e3e911e072ec6e',t:'MTc2MzA5NjA2Mi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
