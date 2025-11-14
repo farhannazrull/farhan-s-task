@@ -11,6 +11,7 @@
   <meta name="description" content="Personal task management dashboard for Farhan"><!-- PWA Manifest -->
   <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIkZhcmhhbiBUYXNrIERhc2hib2FyZCIsCiAgInNob3J0X25hbWUiOiAiRmFyaGFuIFRhc2tzIiwKICAiZGVzY3JpcHRpb24iOiAiUGVyc29uYWwgdGFzayBtYW5hZ2VtZW50IGRhc2hib2FyZCIsCiAgInN0YXJ0X3VybCI6ICIuLyIsCiAgImRpc3BsYXkiOiAic3RhbmRhbG9uZSIsCiAgImJhY2tncm91bmRfY29sb3IiOiAiI2ZmZmZmZiIsCiAgInRoZW1lX2NvbG9yIjogIiMyMzgzZTIiLAogICJpY29ucyI6IFsKICAgIHsKICAgICAgInNyYyI6ICJkYXRhOmltYWdlL3N2Zyt4bWw7YmFzZTY0LFBITjJaeUI0Yld4dWN6MGlhSFIwY0RvdkwzZDNkeTUzTXk1dmNtY3ZNakF3TUM5emRtY2lJSGRwWkhSb1BTSXhNakFpSUdobGFXZG9kRDBpTVRJd0lqNDhjbVZqZENCM2FXUjBhRDBpTVRJd0lpQm9aV2xuYUhROUlqRXlNQ0lpSUdacGJHdzlJaU15TXpnek9ESTJJaUJ5ZUQwaU1UQWlMejQ4ZEdWNGRDQjRQU0kyTUNJZ2VUMGlOVEFpSUdacGJHdzlJaU5tWm1abVptWWlJR1p2Ym5RdGMybDZaVDBpTkRBaUlIUmxlSFF0WVc1amFHOXlQU0p0YVdSa2JHVWlQajQ4TDNSbGVIUStQQzl6ZG1jKyIsCiAgICAgICJzaXplcyI6ICIxMjB4MTIwIiwKICAgICAgInR5cGUiOiAiaW1hZ2Uvc3ZnK3htbCIKICAgIH0sCiAgICB7CiAgICAgICJzcmMiOiAiZGF0YTppbWFnZS9zdmcreG1sO2Jhc2U2NCxQSE4yWnlCNGJXeHVjejBpYUhSMGNEb3ZMM2QzZHk1M015NXZjbWN2TWpBd01DOXpkbWNpSUhkcFpIUm9QU0l5TlRZaUlHaGxhV2RvZEQwaU1qVTJJajQ4Y21WamRDQjNhV1IwYUQwaU1qVTJJaUJvWldsbmFIUTlJakkxTmlJZ1ptbHNiRDBpSXpJek9ETmxNaUlnY25nOUlqSXdJaTgrUEhSbGVIUWdlRDBpTVRJNElpQjVQU0l4TWpnaUlHWnBiR3c5SWlObVptWm1abVlpSUdadmJuUXRjMmw2WlQwaU9EQWlJSFJsZUhRdFlXNWphRzl5UFNKdGFXUmtiR1VpUGo0OEwzUmxlSFErUEM5emRtYysiLAogICAgICAic2l6ZXMiOiAiMjU2eDI1NiIsCiAgICAgICJ0eXBlIjogImltYWdlL3N2Zyt4bWwiCiAgICB9CiAgXQp9"><!-- Apple Touch Icons -->
   <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxODAiIGhlaWdodD0iMTgwIj48cmVjdCB3aWR0aD0iMTgwIiBoZWlnaHQ9IjE4MCIgZmlsbD0iIzIzODNlMiIgcng9IjMwIi8+PHRleHQgeD0iOTAiIHk9IjEwNSIgZmlsbD0iI2ZmZmZmZiIgZm9udC1zaXplPSI4MCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+📋</dGV4dD48L3N2Zz4=">
+  <script src="/_sdk/data_sdk.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
         body {
@@ -140,12 +141,30 @@
             from { transform: translateX(100%); opacity: 0; }
             to { transform: translateX(0); opacity: 1; }
         }
+
+        .connection-status {
+            position: fixed;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            z-index: 1000;
+        }
+
+        .status-connecting { background: #fbbf24; color: #92400e; }
+        .status-connected { background: #10b981; color: white; }
+        .status-error { background: #ef4444; color: white; }
     </style>
   <style>@view-transition { navigation: auto; }</style>
-  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
   <script src="/_sdk/element_sdk.js" type="text/javascript"></script>
  </head>
- <body class="h-full notion-bg font-sans">
+ <body class="h-full notion-bg font-sans"><!-- Connection Status Indicator -->
+  <div id="connection-status" class="connection-status status-connecting hidden">
+   🔄 Connecting to Canva Sheet...
+  </div>
   <main class="min-h-full">
    <div class="max-w-7xl mx-auto"><!-- Main Container -->
     <div class="notion-bg p-6"><!-- Header -->
@@ -188,37 +207,78 @@
    </div>
   </main>
   <script>
-        // Local Storage Management
+        // Connection Status Management
+        function updateConnectionStatus(status, message) {
+            const statusEl = document.getElementById('connection-status');
+            statusEl.className = `connection-status status-${status}`;
+            statusEl.textContent = message;
+            statusEl.classList.remove('hidden');
+            
+            if (status === 'connected') {
+                setTimeout(() => {
+                    statusEl.classList.add('hidden');
+                }, 3000);
+            }
+        }
+
+        // Cloud Data Management with Canva Sheet
         class TaskManager {
             constructor() {
-                this.storageKey = 'farhan-tasks';
-                this.tasks = this.loadTasks();
+                this.tasks = [];
                 this.filteredTasks = [];
                 this.expandedTasks = new Set();
                 this.autoSort = false;
+                this.isInitialized = false;
             }
 
-            loadTasks() {
-                try {
-                    const stored = localStorage.getItem(this.storageKey);
-                    return stored ? JSON.parse(stored) : [];
-                } catch (error) {
-                    console.error('Error loading tasks:', error);
-                    return [];
+            async initialize() {
+                if (this.isInitialized) return;
+                
+                updateConnectionStatus('connecting', '🔄 Connecting to Canva Sheet...');
+                
+                const dataHandler = {
+                    onDataChanged: (data) => {
+                        console.log('Data received from Canva Sheet:', data.length, 'tasks');
+                        this.tasks = data.map(task => ({
+                            ...task,
+                            subtasks: task.subtasks ? JSON.parse(task.subtasks) : []
+                        }));
+                        this.updateUI();
+                    }
+                };
+
+                if (window.dataSdk) {
+                    try {
+                        const result = await window.dataSdk.init(dataHandler);
+                        if (result.isOk) {
+                            this.isInitialized = true;
+                            updateConnectionStatus('connected', '✅ Connected to Canva Sheet!');
+                            console.log('Successfully connected to Canva Sheet');
+                        } else {
+                            console.error('Failed to initialize Data SDK:', result.error);
+                            updateConnectionStatus('error', '❌ Failed to connect to cloud storage');
+                        }
+                    } catch (error) {
+                        console.error('Error initializing Data SDK:', error);
+                        updateConnectionStatus('error', '❌ Connection error');
+                    }
+                } else {
+                    console.error('Data SDK not available');
+                    updateConnectionStatus('error', '❌ Data SDK not available');
                 }
             }
 
-            saveTasks() {
-                try {
-                    localStorage.setItem(this.storageKey, JSON.stringify(this.tasks));
-                    this.updateUI();
-                } catch (error) {
-                    console.error('Error saving tasks:', error);
-                    showToast('Failed to save data', 'error');
+            async addTask(taskData) {
+                if (!this.isInitialized) {
+                    showToast('Please wait, connecting to cloud...', 'info');
+                    return;
                 }
-            }
 
-            addTask(taskData) {
+                if (this.tasks.length >= 999) {
+                    showToast('Maximum limit of 999 tasks reached. Please delete some tasks first.', 'error');
+                    return;
+                }
+
                 const newTask = {
                     id: Date.now().toString(),
                     title: taskData.title,
@@ -228,50 +288,85 @@
                     deadline: taskData.deadline || '',
                     completed: false,
                     createdAt: new Date().toISOString(),
-                    subtasks: []
+                    subtasks: JSON.stringify([])
                 };
 
-                this.tasks.push(newTask);
-                this.saveTasks();
-                showToast('Task added successfully!', 'success');
+                try {
+                    const result = await window.dataSdk.create(newTask);
+                    if (result.isOk) {
+                        showToast('Task saved to Canva Sheet!', 'success');
+                        console.log('Task created successfully');
+                    } else {
+                        console.error('Failed to create task:', result.error);
+                        showToast('Failed to save task', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error creating task:', error);
+                    showToast('Failed to save task', 'error');
+                }
                 return newTask;
             }
 
-            updateTask(taskId, updates) {
-                const taskIndex = this.tasks.findIndex(t => t.id === taskId);
-                if (taskIndex !== -1) {
-                    this.tasks[taskIndex] = { ...this.tasks[taskIndex], ...updates };
-                    this.saveTasks();
-                    return this.tasks[taskIndex];
+            async updateTask(taskId, updates) {
+                const task = this.tasks.find(t => t.id === taskId);
+                if (task) {
+                    const updatedTask = { 
+                        ...task, 
+                        ...updates,
+                        subtasks: typeof updates.subtasks === 'object' ? JSON.stringify(updates.subtasks) : task.subtasks
+                    };
+                    
+                    try {
+                        const result = await window.dataSdk.update(updatedTask);
+                        if (result.isOk) {
+                            console.log('Task updated successfully');
+                            return updatedTask;
+                        } else {
+                            console.error('Failed to update task:', result.error);
+                            showToast('Failed to update task', 'error');
+                        }
+                    } catch (error) {
+                        console.error('Error updating task:', error);
+                        showToast('Failed to update task', 'error');
+                    }
                 }
                 return null;
             }
 
-            deleteTask(taskId) {
-                const taskIndex = this.tasks.findIndex(t => t.id === taskId);
-                if (taskIndex !== -1) {
-                    this.tasks.splice(taskIndex, 1);
-                    this.saveTasks();
-                    showToast('Task deleted successfully!', 'success');
-                    return true;
+            async deleteTask(taskId) {
+                const task = this.tasks.find(t => t.id === taskId);
+                if (task) {
+                    try {
+                        const result = await window.dataSdk.delete(task);
+                        if (result.isOk) {
+                            showToast('Task deleted from Canva Sheet!', 'success');
+                            console.log('Task deleted successfully');
+                            return true;
+                        } else {
+                            console.error('Failed to delete task:', result.error);
+                            showToast('Failed to delete task', 'error');
+                        }
+                    } catch (error) {
+                        console.error('Error deleting task:', error);
+                        showToast('Failed to delete task', 'error');
+                    }
                 }
                 return false;
             }
 
-            toggleTask(taskId) {
+            async toggleTask(taskId) {
                 const task = this.tasks.find(t => t.id === taskId);
                 if (task) {
-                    task.completed = !task.completed;
-                    if (task.completed) {
-                        task.status = 'Done';
-                    }
-                    this.saveTasks();
-                    return task;
+                    const updates = {
+                        completed: !task.completed,
+                        status: !task.completed ? 'Done' : task.status
+                    };
+                    return await this.updateTask(taskId, updates);
                 }
                 return null;
             }
 
-            addSubtask(taskId, subtaskText) {
+            async addSubtask(taskId, subtaskText) {
                 const task = this.tasks.find(t => t.id === taskId);
                 if (task) {
                     const newSubtask = {
@@ -279,35 +374,39 @@
                         text: subtaskText,
                         completed: false
                     };
-                    task.subtasks.push(newSubtask);
-                    this.saveTasks();
-                    showToast('Subtask added successfully!', 'success');
-                    return newSubtask;
-                }
-                return null;
-            }
-
-            toggleSubtask(taskId, subtaskId) {
-                const task = this.tasks.find(t => t.id === taskId);
-                if (task) {
-                    const subtask = task.subtasks.find(s => s.id === subtaskId);
-                    if (subtask) {
-                        subtask.completed = !subtask.completed;
-                        this.saveTasks();
-                        return subtask;
+                    const updatedSubtasks = [...task.subtasks, newSubtask];
+                    const result = await this.updateTask(taskId, { subtasks: updatedSubtasks });
+                    if (result) {
+                        showToast('Subtask saved to Canva Sheet!', 'success');
+                        return newSubtask;
                     }
                 }
                 return null;
             }
 
-            deleteSubtask(taskId, subtaskId) {
+            async toggleSubtask(taskId, subtaskId) {
                 const task = this.tasks.find(t => t.id === taskId);
                 if (task) {
                     const subtaskIndex = task.subtasks.findIndex(s => s.id === subtaskId);
                     if (subtaskIndex !== -1) {
-                        task.subtasks.splice(subtaskIndex, 1);
-                        this.saveTasks();
-                        showToast('Subtask deleted successfully!', 'success');
+                        const updatedSubtasks = [...task.subtasks];
+                        updatedSubtasks[subtaskIndex].completed = !updatedSubtasks[subtaskIndex].completed;
+                        const result = await this.updateTask(taskId, { subtasks: updatedSubtasks });
+                        if (result) {
+                            return updatedSubtasks[subtaskIndex];
+                        }
+                    }
+                }
+                return null;
+            }
+
+            async deleteSubtask(taskId, subtaskId) {
+                const task = this.tasks.find(t => t.id === taskId);
+                if (task) {
+                    const updatedSubtasks = task.subtasks.filter(s => s.id !== subtaskId);
+                    const result = await this.updateTask(taskId, { subtasks: updatedSubtasks });
+                    if (result) {
+                        showToast('Subtask deleted from Canva Sheet!', 'success');
                         return true;
                     }
                 }
@@ -515,16 +614,16 @@
             taskManager.renderTasks();
         }
 
-        function addSubtaskFromInput(taskId) {
+        async function addSubtaskFromInput(taskId) {
             const input = document.getElementById(`subtask-input-${taskId}`);
             const text = input.value.trim();
             if (text) {
-                taskManager.addSubtask(taskId, text);
+                await taskManager.addSubtask(taskId, text);
                 input.value = '';
             }
         }
 
-        function editTask(taskId) {
+        async function editTask(taskId) {
             const task = taskManager.tasks.find(t => t.id === taskId);
             if (!task) return;
             
@@ -536,13 +635,13 @@
             document.getElementById('task-deadline').value = task.deadline || '';
             
             // Delete the task so user can re-add with changes
-            taskManager.deleteTask(taskId);
+            await taskManager.deleteTask(taskId);
             
             showToast('Task loaded for editing. Modify and click Add.', 'info');
         }
 
         // Event Listeners
-        document.getElementById('task-form').addEventListener('submit', (e) => {
+        document.getElementById('task-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             
             const title = document.getElementById('task-title').value.trim();
@@ -573,8 +672,7 @@
             
             setLoading(true);
             
-            // Simulate loading delay
-            setTimeout(() => {
+            try {
                 const taskData = {
                     title: title,
                     category: category,
@@ -583,7 +681,7 @@
                     deadline: document.getElementById('task-deadline').value
                 };
                 
-                taskManager.addTask(taskData);
+                await taskManager.addTask(taskData);
                 
                 // Clear form
                 document.getElementById('task-title').value = '';
@@ -591,9 +689,12 @@
                 document.getElementById('task-priority').value = '';
                 document.getElementById('task-status').value = '';
                 document.getElementById('task-deadline').value = '';
-                
+            } catch (error) {
+                console.error('Error in form submission:', error);
+                showToast('Failed to save task', 'error');
+            } finally {
                 setLoading(false);
-            }, 500);
+            }
         });
 
         document.getElementById('search-input').addEventListener('input', (e) => {
@@ -617,18 +718,20 @@
             }
         });
 
-        // Initialize UI
-        document.addEventListener('DOMContentLoaded', () => {
+        // Initialize the application
+        async function initializeApp() {
+            console.log('Initializing Farhan Task Dashboard...');
+            console.log('Data SDK available:', !!window.dataSdk);
+            
+            await taskManager.initialize();
             taskManager.updateUI();
-        });
+        }
 
-        // Initialize immediately if DOM is already loaded
+        // Initialize when DOM is ready
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => {
-                taskManager.updateUI();
-            });
+            document.addEventListener('DOMContentLoaded', initializeApp);
         } else {
-            taskManager.updateUI();
+            initializeApp();
         }
 
         // PWA Service Worker Registration
@@ -685,5 +788,5 @@
             document.body.appendChild(installBtn);
         });
     </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'99e43d2ea2b6fe07',t:'MTc2MzA5OTUwNy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'99e46bb71751ca4b',t:'MTc2MzEwMTQxMy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
